@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'idle-prediction
+
+  Define the  -lambda function -api gateway to perform the inference task of the SAKAMITI
+  group.
+
+  lambda function use EFS to import modules. Layers does not use because of too big
+  to store in it.
+
+  TODO: Go out id
+
+  '
+Resources:
+  HttpApiGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+        - '*'
+        AllowMethods:
+        - POST
+        AllowHeaders:
+        - '*'
+  upload:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: upload
+      Handler: upload.lambda_handler
+      Runtime: python3.8
+      Description: Place request image file on EFS
+      MemorySize: 1024
+      Timeout: 30
+      Role: arn:aws:iam::510310114113:role/updateRole
+      Policies:
+      - EFSWriteAccessPolicy:
+          FileSystem: fs-15b41335
+          AccessPoint: fsap-0e6764d56ddc45f3e
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-0ed52eacf5d66b388
+        SubnetIds:
+        - subnet-05e3fb2a306d15126
+      FileSystemConfigs:
+      - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+        LocalMountPath: /mnt/efs
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /image/upload
+            Method: post
+            ApiId:
+              Ref: HttpApiGateway
+  preprocess:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: preprocess
+      Handler: preprocess.lambda_handler
+      Runtime: python3.8
+      Description: Perform image editing before inference. Resize the image and extract
+        the face.
+      MemorySize: 512
+      Timeout: 95
+      Role: arn:aws:iam::510310114113:role/preprocessRole
+      Policies:
+      - EFSWriteAccessPolicy:
+          FileSystem: fs-15b41335
+          AccessPoint: fsap-0e6764d56ddc45f3e
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-0ed52eacf5d66b388
+        SubnetIds:
+        - subnet-05e3fb2a306d15126
+      FileSystemConfigs:
+      - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+        LocalMountPath: /mnt/efs
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /models/preprocess
+            Method: post
+            ApiId:
+              Ref: HttpApiGateway
+  prediction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: prediction
+      Handler: prediction.lambda_handler
+      Runtime: python3.8
+      Description: Infer the SAKAMITI group from the image
+      MemorySize: 1024
+      Timeout: 95
+      Role: arn:aws:iam::510310114113:role/predictionRole
+      Policies:
+      - EFSWriteAccessPolicy:
+          FileSystem: fs-15b41335
+          AccessPoint: fsap-0e6764d56ddc45f3e
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-0ed52eacf5d66b388
+        SubnetIds:
+        - subnet-05e3fb2a306d15126
+      FileSystemConfigs:
+      - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+        LocalMountPath: /mnt/efs
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /models/prediction
+            Method: post
+            ApiId:
+              Ref: HttpApiGateway
+Outputs:
+  idlePredictionApi:
+    Description: API Gateway endpoint URL for Prod stage for idlePredictionApi
+    Value:
+      Fn::Sub: https://${HttpApiGateway}.execute-api.${AWS::Region}.amazonaws.com
