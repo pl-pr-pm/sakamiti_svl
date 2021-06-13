@@ -54,16 +54,18 @@ VAL_CONTENT_TYPE = 'application/json'
 # レスポンスに利用
 OK_STATUS_CODE = 200
 SERVER_ERROR_STATUS_CODE = 500
+CREATED_STATUS_CODE = 201
 KEY_ORIGIN = 'Access-Control-Allow-Origin'
 VAL_ORIGIN = '*'
 
 # loggerの設定
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # インポートモジュールが大きすぎて、layersを利用できないため、
 # EFS上にインポートモジュールを配置
 # pythonのインポートサーチディレクトリにEFS上のモジュールが格納されているパスを追加
+
 sys.path.insert(0,'/mnt/efs/lib')
 
 # EFSからモジュールをインポート
@@ -73,14 +75,28 @@ from PIL import Image
 
 # 学習済みのモデルを読み込む
 new_model = models.load_model('/mnt/efs/model/fine-tuning-sakamiti.h5')
+logger.debug('モデル読み込み完了')
 
 def lambda_handler(event, context):
     
     try:
        
-       logger.info(f'event = {event}')
+       logger.debug(f'event = {event}')
+       if 'body' not in event:
+           
+           response = {
+           'statusCode':CREATED_STATUS_CODE,
+           'body':'',
+           'headers':{
+               KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
+               KEY_ORIGIN: VAL_ORIGIN
+                }
+           }
+           logger.debug('warm up が完了')
+           return response
+           
        output_file_path = event['body']
-       logger.info(output_file_path)
+       logger.debug(f'output_file_path is {output_file_path}')
     
        # リクエストのあった画像を読み込み、配列の要素データを0 ~ 1にスケールする
        image = Image.open(output_file_path)
@@ -94,14 +110,12 @@ def lambda_handler(event, context):
        # 事前学習済みモデルを利用して画像のグループへの類似度を計算する
        predicted_list = new_model.predict(reshaped_nparray)
     
-       logger.info(predicted_list)
+       logger.debug(f'predicted_list is {predicted_list}')
     
        # 最も確度の高い要素のインデックスを取得する
        predicted = np.argmax(predicted_list)
     
        group = ""
-    
-       logger.info(predicted)
        
        # インデックスからグループ名を割り当て
        if predicted == 0: group = "nogizaka"
@@ -121,7 +135,6 @@ def lambda_handler(event, context):
                KEY_ORIGIN: VAL_ORIGIN
            },
        }
-       
     except Exception as e:
         
         logging.error("type : %s" , type(e))
@@ -139,5 +152,5 @@ def lambda_handler(event, context):
                KEY_ORIGIN: VAL_ORIGIN
            },
         }
-    
+    logger.debug(f'response is {response}')
     return response

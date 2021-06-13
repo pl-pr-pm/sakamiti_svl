@@ -53,7 +53,7 @@ import sys
 
 # loggerの設定
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # インポートモジュールが大きすぎて、layersを利用できないため、
 # EFS上にインポートモジュールを配置
@@ -71,6 +71,7 @@ VAL_ORIGIN = '*'
 
 # レスポンスに利用
 OK_STATUS_CODE = 200
+CREATED_STATUS_CODE = 201
 SERVER_ERROR_STATUS_CODE = 500
 
 # コールドスタート時にインスタンス化し、処理の効率化を図る
@@ -81,15 +82,29 @@ resizer = ResizeImage(sakamiti="user", mode="main")
 def lambda_handler(event, context):
     
     try:
-       logger.info(f'event = {event}')
+       logger.debug(f'event = {event}')
+
        #logger.info(event['body'])
        #input_file_path = json.dumps(event['body']['input_file_path'])
        # 元々は、リクエストのjsonのキーを 'input_file_path' としていたが、
        # なぜか、リクエストのjsonが文字列として認識される(""で括られる)ため、lambda側でjsonのパースができなかった
        # そのため、bodyのキーに直接対象の値を入れている
        
+       if 'body' not in event:
+           
+           response = {
+           'statusCode':CREATED_STATUS_CODE,
+           'body':'',
+           'headers':{
+               KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
+               KEY_ORIGIN: VAL_ORIGIN
+                }
+           }
+           logger.debug('warm up が完了')
+           return response
+       
        input_file_path = event['body']
-       logger.info(input_file_path)
+       logger.debug(f'input_file_path is {input_file_path}')
        
        path = os.path.split(input_file_path)
        
@@ -139,5 +154,5 @@ def lambda_handler(event, context):
                KEY_ORIGIN: VAL_ORIGIN
            },
         }
-    
+    logger.debug(f'response is {response}')
     return response
