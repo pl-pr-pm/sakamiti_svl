@@ -84,8 +84,6 @@ def lambda_handler(event, context):
     try:
        logger.debug(f'event = {event}')
 
-       #logger.info(event['body'])
-       #input_file_path = json.dumps(event['body']['input_file_path'])
        # 元々は、リクエストのjsonのキーを 'input_file_path' としていたが、
        # なぜか、リクエストのjsonが文字列として認識される(""で括られる)ため、lambda側でjsonのパースができなかった
        # そのため、bodyのキーに直接対象の値を入れている
