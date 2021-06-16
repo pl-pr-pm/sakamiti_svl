@@ -108,11 +108,10 @@ def lambda_handler(event, context):
        reshaped_nparray = nparray.reshape(1,nparray.shape[0], nparray.shape[1], nparray.shape[2])
        
        # 事前学習済みモデルを利用して画像のグループへの類似度を計算する
-       # model.predict()は、小さい入力では遅いとのこと
+       # model.predict()は、小さい入力では遅いとのことで、model(x)を利用し、処理の高速化を図る
        # https://github.com/tensorflow/tensorflow/blob/v2.4.1/tensorflow/python/keras/engine/training.py#L1502-L1647
-       # predicted_list = new_model.(reshaped_nparray, training=False)
        
-       predicted_list = new_model(x=reshaped_nparray, training=False)
+       predicted_list = new_model(reshaped_nparray)
     
        logger.debug(f'predicted_list is {predicted_list}')
     
