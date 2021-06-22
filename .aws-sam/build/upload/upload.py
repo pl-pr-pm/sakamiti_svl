@@ -73,6 +73,43 @@ VAL_ORIGIN = '*'
 OK_STATUS_CODE = 200
 SERVER_ERROR_STATUS_CODE = 500
 
+# Return OK RESPONSE
+def ok_response(base_output_file_path):
+    
+    response =  {
+          'statusCode': OK_STATUS_CODE,
+          'headers': {
+              KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
+              KEY_ORIGIN: VAL_ORIGIN
+          },
+          "body": json.dumps({
+              "saved_file_path": base_output_file_path,
+              }),
+    }
+    
+    return response
+      
+# Return NG RESPONSE
+def ng_response(status_code, e, message):
+    
+    if(e is not None):
+        error_message = e.args
+    elif(message is None):
+        error_message = message
+    
+    response =  {
+          "statusCode": status_code,
+          "headers": {
+              KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
+              KEY_ORIGIN: VAL_ORIGIN
+          },
+          "body": json.dumps({
+              'error_message': error_message,
+          }),
+      }
+    
+    return response
+
 def lambda_handler(event, context):
        
     try:
@@ -83,6 +120,11 @@ def lambda_handler(event, context):
       c_type = event['headers']['content-type']
       extention = c_type.split('/')[1]
       logger.info(f'extention = {extention}')
+      
+      # 画像データが付与されていない場合エラーをレスポンス
+      if ('image' !=  c_type.split('/')[0]):
+          response = ng_response(400, None, 'Please request Image file.')
+          return response
     
       # 保存ファイルパスに利用
       now = datetime.datetime.now()
@@ -117,31 +159,16 @@ def lambda_handler(event, context):
       target_image = Image.open(io.BytesIO(b_content))
       target_image.save(base_output_file_path)
       logger.info(f'image saved at {base_output_file_path}')
-
-      response =  {
-          'statusCode': OK_STATUS_CODE,
-          'headers': {
-              KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
-              KEY_ORIGIN: VAL_ORIGIN
-          },
-          "body": json.dumps({
-              "saved_file_path": base_output_file_path,
-              }),
-      }
+      
+      # OKレスポンスを作成
+      response = ok_response(base_output_file_path)
       
     except Exception as e:
         
       logger.error("type : %s" , type(e))
-      logger.error(e)        
-        
-      response =  {
-          "statusCode": SERVER_ERROR_STATUS_CODE,
-          "headers": {
-              KEY_CONTENT_TYPE:VAL_CONTENT_TYPE,
-              KEY_ORIGIN: VAL_ORIGIN
-          },
-          "body": json.dumps({
-              'error_message': e.args,
-          }),
-      } 
+      logger.error(e)
+      
+      # NGレスポンスを作成  
+      response = ng_response(500,e)
+      
     return response
