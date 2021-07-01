@@ -25,7 +25,30 @@ Resources:
             - POST
           AllowHeaders:
             - '*'
+        Auth:
+          DefaultAuthorizer: IdlePredictionAuthorizer
+          Authorizers:
+            IdlePredictionAuthorizer:
+              FunctionArn: !GetAtt authIdle.Arn
+              FunctionInvokeRole: !Sub arn:aws:iam::${AWS::AccountId}:role/InvokeLambdaFunction
+              FunctionPayloadType: REQUEST
+              Identity:
+                Headers:
+                  - Authorization
+              AuthorizerPayloadFormatVersion: 2.0
+              EnableSimpleResponses: true
     
+    authIdle:
+      Type: 'AWS::Serverless::Function'
+      Properties:
+         CodeUri: authorizer/
+         Handler: authorizer.lambda_handler
+         Runtime: python3.8
+         Description: 'Idle Prediction s authorizer'
+         Environment:
+           Variables:
+             source: '{{resolve:ssm:target_source:1}}'
+           
     upload:
       Type: 'AWS::Serverless::Function'
       Properties:
@@ -35,18 +58,18 @@ Resources:
          Description: 'Place request image file on EFS'
          MemorySize: 1024
          Timeout: 30
-         Role: arn:aws:iam::510310114113:role/updateRole
+         Role: !Sub arn:aws:iam::${AWS::AccountId}:role/updateRole
          Policies:
             - EFSWriteAccessPolicy:
-               FileSystem: fs-15b41335
-               AccessPoint: fsap-0e6764d56ddc45f3e
+               FileSystem: '{{resolve:ssm:filesystem_id:1}}'
+               AccessPoint: '{{resolve:ssm:access_point:1}}'
          VpcConfig:
             SecurityGroupIds:
                - sg-0ed52eacf5d66b388
             SubnetIds:
                - subnet-05e3fb2a306d15126
          FileSystemConfigs:
-            - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+            - Arn: !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:access-point/{{resolve:ssm:access_point:1}}
               LocalMountPath: /mnt/efs
          Events:
             Api:
@@ -65,20 +88,18 @@ Resources:
          Description: 'Perform image editing before inference. Resize the image and extract the face.'
          MemorySize: 512
          Timeout: 95
-         Role: arn:aws:iam::510310114113:role/preprocessRole
-         #Layers:
-         #  - arn:aws:lambda:ap-northeast-1:510310114113:layer:lab2:2
+         Role: !Sub arn:aws:iam::${AWS::AccountId}:role/preprocessRole
          Policies:
             - EFSWriteAccessPolicy:
-               FileSystem: fs-15b41335
-               AccessPoint: fsap-0e6764d56ddc45f3e
+               FileSystem: '{{resolve:ssm:filesystem_id:1}}'
+               AccessPoint: '{{resolve:ssm:access_point:1}}'
          VpcConfig:
             SecurityGroupIds:
                - sg-0ed52eacf5d66b388
             SubnetIds:
                - subnet-05e3fb2a306d15126
          FileSystemConfigs:
-            - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+            - Arn: !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:access-point/{{resolve:ssm:access_point:1}}
               LocalMountPath: /mnt/efs
          Events:
             Api:
@@ -97,18 +118,18 @@ Resources:
           Description: 'Infer the SAKAMITI group from the image'
           MemorySize: 1024
           Timeout: 95
-          Role: arn:aws:iam::510310114113:role/predictionRole
+          Role: !Sub arn:aws:iam::${AWS::AccountId}:role/predictionRole
           Policies:
             - EFSWriteAccessPolicy:
-               FileSystem: fs-15b41335
-               AccessPoint: fsap-0e6764d56ddc45f3e
+               FileSystem: '{{resolve:ssm:filesystem_id:1}}'
+               AccessPoint: '{{resolve:ssm:access_point:1}}'
           VpcConfig:
             SecurityGroupIds:
                - sg-0ed52eacf5d66b388
             SubnetIds:
                - subnet-05e3fb2a306d15126
           FileSystemConfigs:
-            - Arn: arn:aws:elasticfilesystem:ap-northeast-1:510310114113:access-point/fsap-0e6764d56ddc45f3e
+            - Arn: !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:access-point/{{resolve:ssm:access_point:1}}
               LocalMountPath: /mnt/efs
           Events:
              Api:
