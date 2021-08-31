@@ -43,6 +43,7 @@ body = {
 
 """
 
+import os
 import sys
 import json
 import logging
@@ -124,6 +125,7 @@ def lambda_handler(event, context):
        if predicted == 0: group = "nogizaka"
        if predicted == 1: group = "hinatazaka"
        if predicted == 2: group = "sakurazaka"
+       
     
        body = {
            'predicted_group':group,
@@ -155,5 +157,6 @@ def lambda_handler(event, context):
                KEY_ORIGIN: VAL_ORIGIN
            },
         }
+    
     logger.debug(f'response is {response}')
     return response
